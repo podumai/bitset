@@ -1,0 +1,3 @@
+/home/podumai/bitset/CMakeFiles/TEST.OUT.dir
+/home/podumai/bitset/CMakeFiles/edit_cache.dir
+/home/podumai/bitset/CMakeFiles/rebuild_cache.dir
