@@ -2,6 +2,8 @@
 #define __BITS_BITSET__ 1
 
 #define calculate_capacity(bits) (((bits) >> 3) + ((bits) & 0b00000111 ? 1 : 0))
+#define byte_division(bits) ((bits) >> 3)
+#define byte_module(bits) ((bits) & 0b00000111)
 
 #define BIT_SET   (true)
 #define BIT_UNSET (false)
@@ -32,7 +34,7 @@ namespace bit
   private:
     byte m_storage[calculate_capacity(num_bits)];
   public:
-    constexpr bitset()
+    constexpr bitset() noexcept
     {
       std::memset(m_storage,
                   static_cast<size_type>(BMASK::RESET),
@@ -40,19 +42,23 @@ namespace bit
            );
     }
 
-    constexpr bitset(size_type value)
+    constexpr bitset(size_type value) noexcept : bitset()
     {
       std::memcpy(m_storage,
                   &value,
                   calculate_capacity(num_bits) >= sizeof(value) ? sizeof(value) : calculate_capacity(num_bits));
+      
     }
 
-    constexpr bitset(const bitset& other)
+    constexpr bitset(const bitset& other) noexcept
     {
-      std::memcpy(m_storage, other.m_storage, num_bits);
+      std::memcpy(m_storage,
+                  other.m_storage,
+                  calculate_capacity(num_bits)
+           );
     }
 
-    constexpr bitset(bitset&& other)
+    constexpr bitset(bitset&& other) noexcept
     {
       std::memcpy(m_storage,
                   other.m_storage,
@@ -67,18 +73,45 @@ namespace bit
     ~bitset() = default;
 
     [[nodiscard]] constexpr size_type size() const noexcept { return num_bits; }
+
+    [[nodiscard]] constexpr size_type count() noexcept
+    {
+      pointer end         {m_storage + calculate_capacity(num_bits) - 1};
+      size_type bit_count {};
+
+      for (pointer begin {m_storage}; begin != end; ++begin)
+      {
+        size_type byte {((*begin >> 1) & static_cast<size_type>(0b01010101)) +
+                         (*begin & static_cast<size_type>(0b01010101))};
+        byte = ((byte >> 2) & static_cast<size_type>(0b00110011)) +
+                (byte & static_cast<size_type>(0b00110011));
+        byte = ((byte >> 4) & static_cast<size_type>(0b00001111)) +
+                (byte & static_cast<size_type>(0b00001111));
+        bit_count += byte;
+      }
+
+      constexpr size_type remaining_bits {byte_module(num_bits) ? byte_module(num_bits) : 8};
+
+      for (size_type current_bit {}; current_bit != remaining_bits; ++current_bit)
+        if (*end & static_cast<size_type>(BMASK::BIT) >> current_bit) ++bit_count;
+
+      return bit_count;
+    }
     
     [[nodiscard]] constexpr bool all() const noexcept
     {
       pointer end {m_storage + calculate_capacity(num_bits)};
+
       for (pointer begin {m_storage}; begin != end; ++begin)
         if (!(*begin)) return false;
+
       return true;
     }
 
     [[nodiscard]] constexpr bool any() const noexcept
     {
       pointer end {m_storage + calculate_capacity(num_bits)};
+
       for (pointer begin {m_storage}; begin != end; ++begin)
         if (*begin) return true;
       return false;
@@ -87,8 +120,10 @@ namespace bit
     [[nodiscard]] constexpr bool none() const noexcept
     {
       pointer end {m_storage + calculate_capacity(num_bits)};
+
       for (pointer begin {m_storage}; begin != end; ++begin)
         if (*begin) return false;
+
       return true;
     }
     
@@ -101,6 +136,7 @@ namespace bit
     {
       if (index >= num_bits)
         std::out_of_range("bitset:test(size_type) -> index is out of range");
+
       return m_storage[index >> 3] & static_cast<size_type>(BMASK::BIT) >> index & 0b00000111;
     }
 
@@ -110,6 +146,7 @@ namespace bit
                   static_cast<size_type>(BMASK::SET),
                   calculate_capacity(num_bits)
            );
+
       return *this;
     }
 
@@ -132,6 +169,7 @@ namespace bit
                   static_cast<size_type>(BMASK::RESET),
                   calculate_capacity(num_bits)
            );
+           
       return *this;
     }
 
@@ -139,6 +177,7 @@ namespace bit
     {
       if (index >= num_bits)
         std::out_of_range("bitset:reset(size_type) -> index is out of range");
+
       m_storage[index >> 3] &= ~(static_cast<size_type>(BMASK::BIT) >> (index & 0b00000111));
       return *this;
     }
@@ -146,8 +185,10 @@ namespace bit
     constexpr bitset& flip() noexcept
     {
       pointer end {m_storage + calculate_capacity(num_bits)};
+
       for (pointer begin {m_storage}; begin != end; ++begin)
         *begin ^= static_cast<size_type>(BMASK::SET);
+
       return *this;
     }
 
@@ -155,6 +196,7 @@ namespace bit
     {
       if (index >= num_bits)
         std::out_of_range("bitset:flip(size_type) -> index is out of range");
+
       m_storage[index >> 3] ^= static_cast<size_type>(BMASK::BIT) >> (index & 0b00000111);
       return *this;
     }
@@ -171,6 +213,7 @@ namespace bit
         static_cast<bool>(m_storage[bit >> 3] & static_cast<size_type>(BMASK::BIT) >> (bit & 0b00000111)
         ) + '0'
         );
+
       return bin_string;
     }
 
@@ -213,6 +256,8 @@ namespace bit
                   other.m_storage,
                   calculate_capacity(num_bits)
            );
+      
+      return *this;
     }
 
     constexpr bitset& operator=(bitset&& other)
@@ -225,6 +270,8 @@ namespace bit
                   static_cast<size_type>(BMASK::RESET),
                   calculate_capacity(num_bits)
            );
+      
+      return *this;
     }
 
     [[nodiscard]] bool operator==(const bitset& other)
@@ -246,7 +293,7 @@ namespace bit
 
 template<std::size_t num_bits>
 [[nodiscard]] bit::bitset<num_bits> operator&(const bit::bitset<num_bits>& lhs,
-                                               const bit::bitset<num_bits>& rhs)
+                                              const bit::bitset<num_bits>& rhs)
 {
   bit::bitset<num_bits> tmp (lhs);
   return tmp &= rhs;
@@ -254,7 +301,7 @@ template<std::size_t num_bits>
 
 template<std::size_t num_bits>
 [[nodiscard]] bit::bitset<num_bits> operator|(const bit::bitset<num_bits>& lhs,
-                                               const bit::bitset<num_bits>& rhs)
+                                                const bit::bitset<num_bits>& rhs)
 {
   bit::bitset<num_bits> tmp (lhs);
   return tmp |= rhs;
@@ -262,7 +309,7 @@ template<std::size_t num_bits>
 
 template<std::size_t num_bits>
 [[nodiscard]] bit::bitset<num_bits> operator^(const bit::bitset<num_bits>& lhs,
-                                               const bit::bitset<num_bits>& rhs)
+                                              const bit::bitset<num_bits>& rhs)
 {
   bit::bitset<num_bits> tmp (lhs);
   return lhs ^= rhs;
