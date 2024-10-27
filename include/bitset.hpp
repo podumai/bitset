@@ -12,6 +12,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include "bitset_iterator.hpp"
 
 namespace bit
 {
@@ -71,6 +72,10 @@ namespace bit
     }
 
     ~bitset() = default;
+    
+    [[nodiscard]] bitset_iterator::iterator begin() { return bitset_iterator::iterator(m_storage, 0); }
+
+    [[nodiscard]] bitset_iterator::iterator end() { return bitset_iterator::iterator(m_storage, num_bits); }
 
     [[nodiscard]] constexpr size_type size() const noexcept { return num_bits; }
 
