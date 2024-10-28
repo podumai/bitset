@@ -12,6 +12,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <ostream>
 #include "bitset_iterator.hpp"
 
 namespace bit
@@ -73,9 +74,15 @@ namespace bit
 
     ~bitset() = default;
     
-    [[nodiscard]] bitset_iterator::iterator begin() { return bitset_iterator::iterator(m_storage, 0); }
+    [[nodiscard]] bitset_iterator::iterator begin() noexcept
+    {
+      return bitset_iterator::iterator(m_storage, 0);
+    }
 
-    [[nodiscard]] bitset_iterator::iterator end() { return bitset_iterator::iterator(m_storage, num_bits); }
+    [[nodiscard]] bitset_iterator::iterator end() noexcept
+    {
+      return bitset_iterator::iterator(m_storage, num_bits);
+    }
 
     [[nodiscard]] constexpr size_type size() const noexcept { return num_bits; }
 
@@ -221,6 +228,58 @@ namespace bit
 
       return bin_string;
     }
+    
+    constexpr bitset operator~() const noexcept
+    {
+      bitset<num_bits> tmp (*this);
+
+      pointer end {tmp.m_storage + calculate_capacity(num_bits)};
+
+      for (pointer begin {tmp.m_storage}; begin != end; ++begin)
+        *begin = ~(*begin);
+      
+      return tmp;
+    }
+
+    constexpr bitset& operator>>=(size_type shift)
+    {
+      if (shift >= calculate_capacity(num_bits))
+      {
+        std::memset(m_storage,
+                    static_cast<size_type>(BMASK::RESET),
+                    calculate_capacity(num_bits)
+             );
+        return *this;
+      }
+
+      return *this;
+    }
+
+    constexpr bitset operator>>(size_type shift) const noexcept
+    {
+      bitset<num_bits> tmp_obj (*this);
+      return tmp_obj >>= shift;
+    }
+
+    constexpr bitset& operator<<=(size_type shift)
+    {
+      if (shift >= calculate_capacity(num_bits))
+      {
+        std::memset(m_storage,
+                    static_cast<size_type>(BMASK::RESET),
+                    calculate_capacity(num_bits)
+             );
+        return *this;
+      }
+
+      return *this;
+    }
+    
+    constexpr bitset operator<<(size_type shift) const noexcept
+    {
+      bitset<num_bits> tmp_obj (*this);
+      return tmp_obj <<= shift;
+    }
 
     constexpr bitset& operator&=(const bitset& other)
     {
@@ -306,7 +365,7 @@ template<std::size_t num_bits>
 
 template<std::size_t num_bits>
 [[nodiscard]] bit::bitset<num_bits> operator|(const bit::bitset<num_bits>& lhs,
-                                                const bit::bitset<num_bits>& rhs)
+                                              const bit::bitset<num_bits>& rhs)
 {
   bit::bitset<num_bits> tmp (lhs);
   return tmp |= rhs;
@@ -318,6 +377,12 @@ template<std::size_t num_bits>
 {
   bit::bitset<num_bits> tmp (lhs);
   return lhs ^= rhs;
+}
+
+template<std::size_t num_bits>
+std::ostream& operator<<(std::ostream& out, const bit::bitset<num_bits>& bitset_obj)
+{
+  return out << bitset_obj.to_string();
 }
 
 #undef BIT_SET

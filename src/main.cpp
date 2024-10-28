@@ -5,7 +5,9 @@
 
 std::int32_t main()
 {
-  bit::bitset<16> test (0x0f);
-  std::println("{}", test.to_string());
+  bit::bitset<16> test (0xff);
+  
+  std::cout << (test >> 20) << std::endl;
+
   return 0;
 }
