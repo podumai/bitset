@@ -5,7 +5,7 @@
 
 std::int32_t main()
 {
-  bit::bitset<16> test (0xff);
+  mpl::bit::bitset<16> test (0xff);
   
   for (auto iterator : test)
     std::cout << iterator;
